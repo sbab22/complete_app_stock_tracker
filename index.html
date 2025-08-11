@@ -558,26 +558,44 @@
             resultsContainer.classList.add('hidden', 'opacity-0');
             errorContainer.classList.add('hidden');
 
-            const apiUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${polygonApiKey}`;
-            try {
-                const response = await fetch(apiUrl);
-                if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
-                const data = await response.json();
+            const priceApiUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${polygonApiKey}`;
+            const detailsApiUrl = `https://api.polygon.io/v3/reference/tickers/${ticker}?apiKey=${polygonApiKey}`;
 
-                if (data.status === "OK" && data.resultsCount > 0) {
-                    const result = data.results[0];
-                    currentStockData = {
-                        ticker: data.ticker,
-                        price: result.c,
-                        change: result.c - result.o,
-                        changePercent: ((result.c - result.o) / result.o) * 100,
-                        prevClose: result.o,
-                        open: result.o
-                    };
-                    displayStockData(currentStockData);
-                } else {
+            try {
+                // Fetch price data
+                const priceResponse = await fetch(priceApiUrl);
+                if (!priceResponse.ok) throw new Error(`API request failed with status ${priceResponse.status}`);
+                const priceData = await priceResponse.json();
+
+                if (!(priceData.status === "OK" && priceData.resultsCount > 0)) {
                     displayError(`Could not find data for ticker "${ticker}". Please check the symbol.`);
+                    loadingIndicator.classList.add('hidden');
+                    return;
                 }
+
+                // Fetch company details
+                const detailsResponse = await fetch(detailsApiUrl);
+                if (!detailsResponse.ok) throw new Error(`API request failed with status ${detailsResponse.status}`);
+                const detailsData = await detailsResponse.json();
+
+                if (detailsData.status !== "OK" || !detailsData.results) {
+                    displayError(`Could not find company details for ticker "${ticker}".`);
+                    loadingIndicator.classList.add('hidden');
+                    return;
+                }
+
+                const result = priceData.results[0];
+                currentStockData = {
+                    ticker: priceData.ticker,
+                    price: result.c,
+                    change: result.c - result.o,
+                    changePercent: ((result.c - result.o) / result.o) * 100,
+                    prevClose: result.o,
+                    open: result.o,
+                    companyName: detailsData.results.name // Save company name here
+                };
+                displayStockData(currentStockData);
+
             } catch (error) {
                 console.error('Fetch error:', error);
                 displayError('An error occurred while fetching data.');
@@ -586,11 +604,13 @@
             }
         }
 
-        function displayStockData(quoteData) {
+
+       function displayStockData(quoteData) {
             const price = quoteData.price;
             const change = quoteData.change;
-            
+
             document.getElementById('result-ticker').textContent = quoteData.ticker;
+            document.getElementById('result-company-name').textContent = quoteData.companyName || '';  // <-- NEW
             document.getElementById('result-price').textContent = `$${price.toFixed(2)}`;
             document.getElementById('result-change').textContent = change.toFixed(2);
             document.getElementById('result-change-percent').textContent = `${quoteData.changePercent.toFixed(2)}%`;
@@ -608,27 +628,6 @@
             setTimeout(() => resultsContainer.classList.remove('opacity-0'), 50);
         }
 
-        // --- Local Storage Watchlist Functions ---
-
-        function getWatchlists() {
-            return JSON.parse(localStorage.getItem('stock_watchlists')) || {};
-        }
-
-        function saveWatchlists(watchlists) {
-            localStorage.setItem('stock_watchlists', JSON.stringify(watchlists));
-        }
-        
-        function loadWatchlistsFromStorage() {
-            const watchlists = getWatchlists();
-            const watchlistIds = Object.keys(watchlists);
-            renderWatchlistFolders(watchlistIds.map(id => ({ id, name: watchlists[id].name })));
-            if (watchlistIds.length > 0) {
-                const lastSelected = localStorage.getItem('last_selected_watchlist') || watchlistIds[0];
-                switchWatchlist(lastSelected);
-            } else {
-                switchWatchlist(null);
-            }
-        }
 
         function renderWatchlistFolders(watchlistData) {
             watchlistFoldersContainer.innerHTML = '';
@@ -897,4 +896,5 @@
     </script>
 </body>
 </html>
+
 
