@@ -73,9 +73,13 @@
 
                 <div id="results-container" class="hidden opacity-0 bg-stone-50 p-6 rounded-lg cursor-pointer hover:bg-stone-200/50 transition">
                     <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-baseline gap-3">
                         <h2 id="result-ticker" class="text-3xl font-bold"></h2>
-                        <p id="result-price" class="text-4xl font-bold"></p>
+                        <span id="result-company-name" class="text-xl text-gray-600"></span>
                     </div>
+                    <p id="result-price" class="text-4xl font-bold"></p>
+                </div>
+
                     <div class="grid grid-cols-2 gap-4 text-lg">
                         <div class="bg-stone-100 p-3 rounded-md"><p class="text-sm text-gray-500">Change</p><p id="result-change" class="font-medium"></p></div>
                         <div class="bg-stone-100 p-3 rounded-md"><p class="text-sm text-gray-500">Change %</p><p id="result-change-percent" class="font-medium"></p></div>
@@ -893,3 +897,4 @@
     </script>
 </body>
 </html>
+
