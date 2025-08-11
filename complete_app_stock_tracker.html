@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Tracker with Watchlist</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #results-container, #error-container, #loading-indicator, #watchlist-container, #details-page {
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        .modal-content {
+            transition: transform 0.25s ease;
+        }
+        .hidden-view {
+            display: none;
+            opacity: 0;
+            visibility: hidden;
+        }
+        @keyframes pop-in {
+            0% { transform: scale(0.95); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .folder-pop-in {
+            animation: pop-in 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-stone-100 text-gray-800 flex flex-col items-center min-h-screen p-4 space-y-8">
+
+    <div id="main-view" class="w-full">
+        <div class="w-full max-w-md mx-auto">
+            <div class="bg-white shadow-xl rounded-xl p-6 md:p-8">
+                <h1 class="text-2xl md:text-3xl font-bold text-center mb-2">Stock Price Tracker</h1>
+                <p class="text-center text-gray-500 mb-6">Enter a US stock ticker to get the latest quote.</p>
+
+                <form id="stock-form" class="flex items-center gap-3 mb-6">
+                    <input 
+                        type="text" 
+                        id="ticker-input"
+                        placeholder="e.g., AAPL, GOOGL, MSFT"
+                        class="flex-grow bg-stone-50 text-gray-900 border-2 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
+                    >
+                    <button 
+                        type="submit"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </button>
+                </form>
+
+                <div id="loading-indicator" class="hidden text-center py-4">
+                    <p class="text-gray-500">Fetching data...</p>
+                </div>
+
+                <div id="error-container" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-center">
+                    <p id="error-message"></p>
+                </div>
+
+                <div id="results-container" class="hidden opacity-0 bg-stone-50 p-6 rounded-lg cursor-pointer hover:bg-stone-200/50 transition">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 id="result-ticker" class="text-3xl font-bold"></h2>
+                        <p id="result-price" class="text-4xl font-bold"></p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-lg">
+                        <div class="bg-stone-100 p-3 rounded-md"><p class="text-sm text-gray-500">Change</p><p id="result-change" class="font-medium"></p></div>
+                        <div class="bg-stone-100 p-3 rounded-md"><p class="text-sm text-gray-500">Change %</p><p id="result-change-percent" class="font-medium"></p></div>
+                        <div class="bg-stone-100 p-3 rounded-md"><p class="text-sm text-gray-500">Prev. Close</p><p id="result-prev-close" class="font-medium"></p></div>
+                        <div class="bg-stone-100 p-3 rounded-md"><p class="text-sm text-gray-500">Open</p><p id="result-open" class="font-medium"></p></div>
+                    </div>
+                    <button id="add-to-watchlist-btn" class="mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200">Add to Watchlist</button>
+                    <p class="text-xs text-gray-400 text-center mt-4">Click for more details</p>
+                </div>
+            </div>
+        </div>
+        
+        <div id="earnings-container" class="w-full max-w-4xl mx-auto bg-white shadow-xl rounded-xl p-6 md:p-8 mt-8">
+            <h2 class="text-2xl font-bold mb-4">Upcoming Earnings for Major Companies</h2>
+            <div id="earnings-items" class="space-y-3">
+                <p id="earnings-loading-msg" class="text-gray-500">Loading upcoming earnings...</p>
+            </div>
+            <button id="toggle-earnings-btn" class="w-full mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition hidden">Show More</button>
+        </div>
+
+        <div id="watchlist-container" class="w-full max-w-4xl mx-auto bg-white shadow-xl rounded-xl p-6 md:p-8 mt-8">
+            <h2 class="text-2xl font-bold mb-4">My Watchlists</h2>
+            
+            <div id="watchlist-folders" class="flex flex-wrap items-center gap-3 mb-4 border-b border-gray-200 pb-4">
+                </div>
+
+            <form id="new-watchlist-form" class="flex items-center gap-3 mb-6">
+                <input type="text" id="new-watchlist-name" placeholder="Create New Watchlist..." class="flex-grow bg-stone-50 text-gray-900 border-2 border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition">Create</button>
+            </form>
+
+            <div id="watchlist-header" class="hidden flex justify-between items-center mb-4">
+                <h3 id="current-watchlist-title" class="text-xl font-bold"></h3>
+                <button id="delete-watchlist-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg transition flex items-center gap-2 text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    <span>Delete Folder</span>
+                </button>
+            </div>
+
+            <div id="watchlist-items" class="space-y-4">
+                <p id="watchlist-empty-msg" class="text-gray-500">Select or create a watchlist to view stocks.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="details-page" class="hidden-view w-full max-w-6xl mx-auto">
+        <div class="bg-white shadow-xl rounded-xl p-6 md:p-8 relative">
+            <button id="back-to-main-btn" class="mb-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition">&larr; Back</button>
+            <div id="details-content">
+                <div class="text-center py-16">
+                    <p class="text-2xl text-gray-500">Loading stock details...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="watchlist-choice-modal" class="modal fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="modal-content bg-white text-gray-800 rounded-lg shadow-xl p-6 w-full max-w-sm transform scale-95">
+            <h3 class="text-xl font-bold mb-4">Add to which watchlist?</h3>
+            <div id="watchlist-choice-list" class="space-y-2">
+                </div>
+            <button id="close-choice-modal-btn" class="mt-6 w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition">Cancel</button>
+        </div>
+    </div>
+    
+    <div id="delete-confirm-modal" class="modal fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="modal-content bg-white text-gray-800 rounded-lg shadow-xl p-6 w-full max-w-sm transform scale-95">
+            <h3 class="text-xl font-bold mb-4">Confirm Deletion</h3>
+            <p id="delete-confirm-message" class="mb-6">Are you sure you want to delete this watchlist? This action cannot be undone.</p>
+            <div class="flex justify-end gap-4">
+                <button id="cancel-delete-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition">Cancel</button>
+                <button id="confirm-delete-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const polygonApiKey = 'K5NZ0FwNTxGKfOpx_1MImPP7lxS6wRqV';
+        const alphaVantageApiKey = 'OFDN46HTVQC2FIC9';
+
+        // A predefined list of large-cap companies to filter the earnings calendar
+        const LARGE_CAP_TICKERS = new Set([
+            'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'NVDA', 'TSLA', 'META', 'BRK-A', 'BRK-B',
+            'LLY', 'V', 'JPM', 'WMT', 'XOM', 'UNH', 'MA', 'JNJ', 'PG', 'HD', 'COST', 'MRK',
+            'AVGO', 'CRM', 'AMD', 'NFLX'
+        ]);
+        
+        // --- DOM Elements ---
+        const mainView = document.getElementById('main-view');
+        const detailsPage = document.getElementById('details-page');
+        const detailsContent = document.getElementById('details-content');
+        const backToMainBtn = document.getElementById('back-to-main-btn');
+        const stockForm = document.getElementById('stock-form');
+        const tickerInput = document.getElementById('ticker-input');
+        const resultsContainer = document.getElementById('results-container');
+        const errorContainer = document.getElementById('error-container');
+        const errorMessage = document.getElementById('error-message');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const addToWatchlistBtn = document.getElementById('add-to-watchlist-btn');
+        const watchlistContainer = document.getElementById('watchlist-container');
+        const watchlistItemsContainer = document.getElementById('watchlist-items');
+        const watchlistEmptyMsg = document.getElementById('watchlist-empty-msg');
+        const newWatchlistForm = document.getElementById('new-watchlist-form');
+        const newWatchlistNameInput = document.getElementById('new-watchlist-name');
+        const watchlistFoldersContainer = document.getElementById('watchlist-folders');
+        const watchlistHeader = document.getElementById('watchlist-header');
+        const currentWatchlistTitle = document.getElementById('current-watchlist-title');
+        const deleteWatchlistBtn = document.getElementById('delete-watchlist-btn');
+        const watchlistChoiceModal = document.getElementById('watchlist-choice-modal');
+        const watchlistChoiceList = document.getElementById('watchlist-choice-list');
+        const closeChoiceModalBtn = document.getElementById('close-choice-modal-btn');
+        const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+        const deleteConfirmMessage = document.getElementById('delete-confirm-message');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        const earningsItemsContainer = document.getElementById('earnings-items');
+        const earningsLoadingMsg = document.getElementById('earnings-loading-msg');
+        const toggleEarningsBtn = document.getElementById('toggle-earnings-btn');
+
+        let currentStockData = null;
+        let lifetimePriceChart = null;
+        let currentWatchlistId = null;
+        
+        // --- App Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadWatchlistsFromStorage();
+            fetchEarningsCalendar();
+            setInterval(updateAllWatchlistPrices, 300000); // Update every 5 minutes
+        });
+
+        // --- Event Listeners ---
+        stockForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const ticker = tickerInput.value.trim().toUpperCase();
+            if (ticker) fetchStockData(ticker);
+        });
+
+        addToWatchlistBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (currentStockData) openAddToWatchlistModal(currentStockData);
+        });
+        
+        resultsContainer.addEventListener('click', () => {
+             if (currentStockData) showDetailsPage(currentStockData.ticker);
+        });
+
+        backToMainBtn.addEventListener('click', showMainView);
+        
+        newWatchlistForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = newWatchlistNameInput.value.trim();
+            if (name) createNewWatchlist(name);
+            newWatchlistNameInput.value = '';
+        });
+
+        deleteWatchlistBtn.addEventListener('click', openDeleteConfirmModal);
+
+        closeChoiceModalBtn.addEventListener('click', () => {
+            watchlistChoiceModal.classList.add('hidden');
+        });
+
+        cancelDeleteBtn.addEventListener('click', () => {
+            deleteConfirmModal.classList.add('hidden');
+        });
+        
+        confirmDeleteBtn.addEventListener('click', deleteCurrentWatchlist);
+        
+        toggleEarningsBtn.addEventListener('click', () => {
+            const isExpanded = toggleEarningsBtn.dataset.expanded === 'true';
+            document.querySelectorAll('.earnings-item').forEach((item, index) => {
+                if (index >= 3) {
+                    item.classList.toggle('hidden', isExpanded);
+                }
+            });
+            toggleEarningsBtn.dataset.expanded = !isExpanded;
+            toggleEarningsBtn.textContent = !isExpanded ? 'Show Less' : 'Show More';
+        });
+
+
+        // --- View Management ---
+        function showDetailsPage(ticker, addedDate = null) {
+            mainView.classList.add('hidden-view');
+            detailsPage.classList.remove('hidden-view');
+            detailsPage.style.display = 'block';
+            setTimeout(() => detailsPage.style.opacity = 1, 10);
+            loadDetailsContent(ticker, addedDate);
+        }
+
+        function showMainView() {
+            detailsPage.classList.add('hidden-view');
+            mainView.classList.remove('hidden-view');
+            detailsPage.style.display = 'none';
+        }
+
+        // --- Details Page Logic ---
+        async function loadDetailsContent(ticker, addedDate = null) {
+            detailsContent.innerHTML = `<div class="text-center py-16"><p class="text-2xl text-gray-500">Loading stock details for ${ticker}...</p></div>`;
+
+            try {
+                const detailsPromise = fetch(`https://api.polygon.io/v3/reference/tickers/${ticker}?apiKey=${polygonApiKey}`);
+                const prevDayPromise = fetch(`https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${polygonApiKey}`);
+                
+                const endDate = new Date();
+                endDate.setDate(endDate.getDate() - 2); // Use 2 days ago to be safe from data delays
+                const toDate = endDate.toISOString().split('T')[0];
+
+                const startDate = new Date(endDate);
+                startDate.setFullYear(startDate.getFullYear() - 1);
+                const fromDate = startDate.toISOString().split('T')[0];
+
+                const historyPromise = fetch(`https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${fromDate}/${toDate}?adjusted=true&sort=asc&apiKey=${polygonApiKey}`);
+                
+                // Fetch financials for earnings analysis
+                const financialsPromise = fetch(`https://api.polygon.io/vX/reference/financials?ticker=${ticker}&limit=4&apiKey=${polygonApiKey}`);
+
+                const [detailsRes, prevDayRes, historyRes, financialsRes] = await Promise.all([detailsPromise, prevDayPromise, historyPromise, financialsPromise]);
+
+                const detailsData = await detailsRes.json();
+                const prevDayData = await prevDayRes.json();
+                const historyData = await historyRes.json();
+                const financialsData = await financialsRes.json();
+                
+                if (detailsData.status !== "OK" || !detailsData.results) throw new Error(`Could not find company details for ${ticker}.`);
+                if (prevDayData.status !== "OK" || prevDayData.resultsCount === 0) throw new Error(`Could not find price data for ${ticker}.`);
+                if (historyData.status !== "OK" || historyData.resultsCount === 0) throw new Error(`Could not find price history data for ${ticker}.`);
+                
+                // Analyze earnings impact
+                const earningsAnalysis = await analyzeEarningsImpact(ticker, financialsData.results, historyData.results);
+                
+                // Render all content
+                renderDetailsContent(detailsData.results, prevDayData.results[0], historyData, addedDate, earningsAnalysis);
+
+            } catch (error) {
+                console.error("Error loading details:", error);
+                detailsContent.innerHTML = `<div class="text-center py-8"><h2 class="text-2xl font-bold text-red-600 mb-4">An Error Occurred</h2><p class="text-red-700 bg-red-100 p-4 rounded-lg">${error.message}</p></div>`;
+            }
+        }
+        
+        function renderDetailsContent(details, prevDay, history, addedDate = null, earningsAnalysis) {
+            const change = prevDay.c - prevDay.o;
+            const changePercent = (change / prevDay.o) * 100;
+            const changeColor = change >= 0 ? 'text-green-500' : 'text-red-500';
+            
+            const calculate52WeekRange = (historyResults) => {
+                if (!historyResults || historyResults.length === 0) return { high: 'N/A', low: 'N/A' };
+                let high = 0;
+                let low = Infinity;
+                historyResults.forEach(day => {
+                    if (day.h > high) high = day.h;
+                    if (day.l < low) low = day.l;
+                });
+                return { high: high.toFixed(2), low: low.toFixed(2) };
+            };
+
+            const range52 = calculate52WeekRange(history.results);
+
+            detailsContent.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 space-y-6">
+                        <div>
+                            <h2 class="text-4xl font-bold">${details.name} (${details.ticker})</h2>
+                             <div class="flex items-baseline gap-3 mt-2">
+                                 <p class="text-5xl font-bold">${prevDay.c.toFixed(2)}</p>
+                                 <p class="text-2xl font-medium ${changeColor}">${change.toFixed(2)} (${changePercent.toFixed(2)}%)</p>
+                             </div>
+                        </div>
+                        <div class="bg-stone-50 p-6 rounded-lg">
+                             <h3 class="text-2xl font-bold mb-4">Price History (Last Year)</h3>
+                             <canvas id="lifetime-price-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <h3 class="text-2xl font-bold">Key Information</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-gray-100 p-3 rounded-lg"><p class="text-sm text-gray-500">Exchange</p><p class="text-lg font-medium">${details.primary_exchange}</p></div>
+                             <div class="bg-gray-100 p-3 rounded-lg"><p class="text-sm text-gray-500">Prev. Close</p><p class="text-lg font-medium">${prevDay.o.toFixed(2)}</p></div>
+                            <div class="bg-gray-100 p-3 rounded-lg"><p class="text-sm text-gray-500">Open</p><p class="text-lg font-medium">${prevDay.o.toFixed(2)}</p></div>
+                            <div class="bg-gray-100 p-3 rounded-lg"><p class="text-sm text-gray-500">Volume</p><p class="text-lg font-medium">${prevDay.v.toLocaleString()}</p></div>
+                             <div class="bg-gray-100 p-3 rounded-lg"><p class="text-sm text-gray-500">52-Wk High</p><p class="text-lg font-medium">${range52.high}</p></div>
+                            <div class="bg-gray-100 p-3 rounded-lg"><p class="text-sm text-gray-500">52-Wk Low</p><p class="text-lg font-medium">${range52.low}</p></div>
+                            <div class="bg-gray-100 p-3 rounded-lg"><p class="text-sm text-gray-500">Market Cap</p><p class="text-lg font-medium">${details.market_cap ? (details.market_cap / 1_000_000_000).toFixed(2) + 'B' : 'N/A'}</p></div>
+                            <div class="bg-gray-100 p-3 rounded-lg"><p class="text-sm text-gray-500">P/E Ratio</p><p class="text-lg font-medium">${details.pe_ratio ? details.pe_ratio.toFixed(2) : 'N/A'}</p></div>
+                        </div>
+                        
+                        <h3 class="text-2xl font-bold pt-4">Earnings Impact Analysis</h3>
+                        <div id="earnings-analysis-list" class="space-y-2 bg-gray-100 p-3 rounded-lg"></div>
+
+                    </div>
+                </div>
+                 <div class="lg:col-span-3 space-y-4 pt-6">
+                     <div>
+                         <h3 class="text-2xl font-bold mb-2">About ${details.name}</h3>
+                         <p class="text-gray-600 leading-relaxed">${details.description || 'No description available.'}</p>
+                    </div>
+                </div>
+                <button id="add-to-watchlist-details-btn" data-ticker="${details.ticker}" class="fixed bottom-8 right-8 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-5 rounded-full shadow-lg transition duration-200 flex items-center gap-2 z-20">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>Add to Watchlist</span>
+                </button>
+            `;
+            
+            renderEarningsAnalysis(earningsAnalysis);
+            renderLifetimeChart(history, addedDate);
+
+            const detailsWatchlistBtn = document.getElementById('add-to-watchlist-details-btn');
+            if (detailsWatchlistBtn) {
+                detailsWatchlistBtn.addEventListener('click', (e) => {
+                    const ticker = e.currentTarget.dataset.ticker;
+                    fetch(`https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${polygonApiKey}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.status === "OK" && data.resultsCount > 0) {
+                                const result = data.results[0];
+                                const stockData = {
+                                    ticker: data.ticker,
+                                    price: result.c,
+                                };
+                                openAddToWatchlistModal(stockData);
+                            } else {
+                                throw new Error('Could not fetch quote before adding to watchlist.');
+                            }
+                        }).catch(err => displayError(err.message));
+                });
+            }
+        }
+
+        async function analyzeEarningsImpact(ticker, earnings, priceHistory) {
+            if (!earnings || earnings.length === 0) {
+                return { avg1Day: 0, avg5Day: 0, avg30Day: 0, count: 0 };
+            }
+
+            const priceChanges = {
+                '1day': [],
+                '5day': [],
+                '30day': []
+            };
+            
+            const priceMap = new Map(priceHistory.map(p => [new Date(p.t).toISOString().split('T')[0], p.c]));
+            let validEarningsCount = 0;
+
+            for (const earning of earnings) {
+                try {
+                    const earningsDateStr = earning.filing_date;
+                    const basePrice = priceMap.get(earningsDateStr);
+                    if (!basePrice) continue;
+                    validEarningsCount++;
+                    
+                    const intervals = [1, 5, 30];
+                    for (const days of intervals) {
+                        const targetDate = new Date(earningsDateStr);
+                        targetDate.setDate(targetDate.getDate() + days);
+                        const targetDateStr = targetDate.toISOString().split('T')[0];
+
+                        const futurePrice = priceMap.get(targetDateStr);
+                        if (futurePrice) {
+                            const percentChange = ((futurePrice - basePrice) / basePrice) * 100;
+                            priceChanges[`${days}day`].push(percentChange);
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Could not analyze earnings for ${ticker} on ${earning.filing_date}`, e);
+                }
+            }
+
+            const calculateAverage = (arr) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+
+            return {
+                avg1Day: calculateAverage(priceChanges['1day']),
+                avg5Day: calculateAverage(priceChanges['5day']),
+                avg30Day: calculateAverage(priceChanges['30day']),
+                count: validEarningsCount
+            };
+        }
+
+        function renderEarningsAnalysis(analysis) {
+            const container = document.getElementById('earnings-analysis-list');
+            if (!container) return; // Exit if container not on page
+            
+            if (analysis.count === 0) {
+                container.innerHTML = `<p class="text-gray-500 italic">Not enough historical earnings data to analyze.</p>`;
+                return;
+            }
+
+            const formatSummary = (avg, days) => {
+                if (avg === 0) return `On average, there is no significant price change ${days} days after earnings.`;
+                const direction = avg > 0 ? "up" : "down";
+                const color = avg > 0 ? "text-green-500" : "text-red-500";
+                return `On average, this stock has been <strong class="${color}">${direction} ${Math.abs(avg).toFixed(2)}%</strong> ${days} days after its last ${analysis.count} earnings reports.`;
+            };
+            
+            container.innerHTML = `
+                <p class="text-sm text-gray-600">${formatSummary(analysis.avg1Day, 1)}</p>
+                <p class="text-sm text-gray-600">${formatSummary(analysis.avg5Day, 5)}</p>
+                <p class="text-sm text-gray-600">${formatSummary(analysis.avg30Day, 30)}</p>
+            `;
+        }
+
+        function renderLifetimeChart(historyData, addedDate = null) {
+            const labels = historyData.results.map(r => r.t); 
+            const dataPoints = historyData.results.map(r => r.c);
+
+            const datasets = [{
+                label: 'Adjusted Close Price (USD)',
+                data: dataPoints,
+                borderColor: 'rgba(54, 162, 235, 1)',
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                borderWidth: 2.5,
+                pointRadius: 0,
+                tension: 0.1
+            }];
+
+            if (addedDate) {
+                const addedTimestamp = new Date(addedDate).getTime();
+                let closestPoint = null;
+                let minDiff = Infinity;
+
+                historyData.results.forEach(point => {
+                    const diff = Math.abs(point.t - addedTimestamp);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestPoint = { x: point.t, y: point.c };
+                    }
+                });
+
+                if (closestPoint) {
+                    datasets.push({
+                        label: 'Date Added',
+                        data: [closestPoint],
+                        pointBackgroundColor: 'rgb(239, 68, 68)',
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        type: 'scatter',
+                        showLine: false
+                    });
+                }
+            }
+
+            const ctx = document.getElementById('lifetime-price-chart').getContext('2d');
+            if (lifetimePriceChart) lifetimePriceChart.destroy();
+            
+            lifetimePriceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    scales: {
+                        x: { type: 'time', time: { unit: 'month' } },
+                        y: { title: { display: true, text: 'Price (USD)' } }
+                    },
+                    plugins: { 
+                        legend: { display: false },
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: 'x',
+                                wheel: { enabled: true }
+                            },
+                            zoom: {
+                                wheel: { enabled: true },
+                                pinch: { enabled: true },
+                                mode: 'x'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // --- Core Functions ---
+
+        async function fetchStockData(ticker) {
+            loadingIndicator.classList.remove('hidden');
+            resultsContainer.classList.add('hidden', 'opacity-0');
+            errorContainer.classList.add('hidden');
+
+            const apiUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${polygonApiKey}`;
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
+                const data = await response.json();
+
+                if (data.status === "OK" && data.resultsCount > 0) {
+                    const result = data.results[0];
+                    currentStockData = {
+                        ticker: data.ticker,
+                        price: result.c,
+                        change: result.c - result.o,
+                        changePercent: ((result.c - result.o) / result.o) * 100,
+                        prevClose: result.o,
+                        open: result.o
+                    };
+                    displayStockData(currentStockData);
+                } else {
+                    displayError(`Could not find data for ticker "${ticker}". Please check the symbol.`);
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                displayError('An error occurred while fetching data.');
+            } finally {
+                loadingIndicator.classList.add('hidden');
+            }
+        }
+
+        function displayStockData(quoteData) {
+            const price = quoteData.price;
+            const change = quoteData.change;
+            
+            document.getElementById('result-ticker').textContent = quoteData.ticker;
+            document.getElementById('result-price').textContent = `$${price.toFixed(2)}`;
+            document.getElementById('result-change').textContent = change.toFixed(2);
+            document.getElementById('result-change-percent').textContent = `${quoteData.changePercent.toFixed(2)}%`;
+            document.getElementById('result-prev-close').textContent = `$${quoteData.prevClose.toFixed(2)}`;
+            document.getElementById('result-open').textContent = `$${quoteData.open.toFixed(2)}`;
+
+            const changeColorClass = change >= 0 ? 'text-green-500' : 'text-red-500';
+            ['result-price', 'result-change', 'result-change-percent'].forEach(id => {
+                const el = document.getElementById(id);
+                el.classList.remove('text-green-500', 'text-red-500');
+                el.classList.add(changeColorClass);
+            });
+
+            resultsContainer.classList.remove('hidden');
+            setTimeout(() => resultsContainer.classList.remove('opacity-0'), 50);
+        }
+
+        // --- Local Storage Watchlist Functions ---
+
+        function getWatchlists() {
+            return JSON.parse(localStorage.getItem('stock_watchlists')) || {};
+        }
+
+        function saveWatchlists(watchlists) {
+            localStorage.setItem('stock_watchlists', JSON.stringify(watchlists));
+        }
+        
+        function loadWatchlistsFromStorage() {
+            const watchlists = getWatchlists();
+            const watchlistIds = Object.keys(watchlists);
+            renderWatchlistFolders(watchlistIds.map(id => ({ id, name: watchlists[id].name })));
+            if (watchlistIds.length > 0) {
+                const lastSelected = localStorage.getItem('last_selected_watchlist') || watchlistIds[0];
+                switchWatchlist(lastSelected);
+            } else {
+                switchWatchlist(null);
+            }
+        }
+
+        function renderWatchlistFolders(watchlistData) {
+            watchlistFoldersContainer.innerHTML = '';
+            if (watchlistData.length === 0) {
+                watchlistHeader.classList.add('hidden');
+            } else {
+                watchlistData.forEach(wl => {
+                    const folder = document.createElement('button');
+                    folder.dataset.id = wl.id;
+                    folder.className = `folder-item flex items-center gap-2 p-3 rounded-lg transition border-2 border-transparent`;
+                    folder.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        <span>${wl.name}</span>
+                    `;
+                    folder.addEventListener('click', () => switchWatchlist(wl.id));
+                    watchlistFoldersContainer.appendChild(folder);
+                });
+            }
+            updateActiveFolderVisuals();
+        }
+        
+        function createNewWatchlist(name) {
+            const watchlists = getWatchlists();
+            const newId = `watchlist_${Date.now()}`;
+            watchlists[newId] = { name, stocks: {} };
+            saveWatchlists(watchlists);
+            loadWatchlistsFromStorage();
+            switchWatchlist(newId);
+            setTimeout(() => {
+                const newFolder = watchlistFoldersContainer.querySelector(`[data-id="${newId}"]`);
+                if (newFolder) newFolder.classList.add('folder-pop-in');
+            }, 50);
+        }
+
+        function openDeleteConfirmModal() {
+            if (!currentWatchlistId) return;
+            const watchlists = getWatchlists();
+            const currentName = watchlists[currentWatchlistId]?.name || 'this watchlist';
+            
+            deleteConfirmMessage.textContent = `Are you sure you want to delete the "${currentName}" watchlist? This action cannot be undone.`;
+            deleteConfirmModal.classList.remove('hidden');
+        }
+        
+        function deleteCurrentWatchlist() {
+            if (!currentWatchlistId) return;
+            const watchlists = getWatchlists();
+            delete watchlists[currentWatchlistId];
+            saveWatchlists(watchlists);
+            localStorage.removeItem('last_selected_watchlist');
+            currentWatchlistId = null;
+            loadWatchlistsFromStorage();
+            deleteConfirmModal.classList.add('hidden');
+        }
+
+        function switchWatchlist(watchlistId) {
+            currentWatchlistId = watchlistId;
+            if(watchlistId) localStorage.setItem('last_selected_watchlist', watchlistId);
+            updateActiveFolderVisuals();
+            
+            if (watchlistId) {
+                const watchlists = getWatchlists();
+                const currentName = watchlists[watchlistId]?.name || '';
+                watchlistHeader.classList.remove('hidden');
+                currentWatchlistTitle.textContent = `Stocks in "${currentName}"`;
+                renderStocks(watchlists[watchlistId].stocks);
+                updateAllWatchlistPrices();
+            } else {
+                watchlistHeader.classList.add('hidden');
+                watchlistItemsContainer.innerHTML = '';
+                watchlistEmptyMsg.textContent = 'Select or create a watchlist to view stocks.';
+                watchlistEmptyMsg.classList.remove('hidden');
+            }
+        }
+
+        function renderStocks(stocks) {
+            const stockTickers = Object.keys(stocks);
+             if (stockTickers.length === 0) {
+                watchlistItemsContainer.innerHTML = '';
+                watchlistEmptyMsg.textContent = 'This watchlist is empty. Search for a stock to add it.';
+                watchlistEmptyMsg.classList.remove('hidden');
+                return;
+            }
+            watchlistEmptyMsg.classList.add('hidden');
+            watchlistItemsContainer.innerHTML = '';
+            stockTickers.forEach(ticker => {
+                renderWatchlistItem(ticker, stocks[ticker]);
+            });
+        }
+
+        function updateActiveFolderVisuals() {
+            document.querySelectorAll('.folder-item').forEach(folder => {
+                if (folder.dataset.id === currentWatchlistId) {
+                    folder.classList.add('bg-indigo-600', 'text-white');
+                    folder.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                } else {
+                    folder.classList.remove('bg-indigo-600', 'text-white');
+                    folder.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                }
+            });
+        }
+        
+        function renderWatchlistItem(ticker, data) {
+            const currentPrice = data.currentPrice ?? data.addedPrice;
+            const priceDiff = currentPrice - data.addedPrice;
+            const diffColor = priceDiff >= 0 ? 'text-green-500' : 'text-red-500';
+
+            const itemEl = document.createElement('div');
+            itemEl.className = 'bg-stone-50 p-4 rounded-lg flex items-center justify-between cursor-pointer hover:bg-stone-100 transition';
+            itemEl.setAttribute('data-ticker', ticker);
+
+            itemEl.innerHTML = `
+                <div>
+                    <p class="text-xl font-bold">${ticker}</p>
+                    <p class="text-sm text-gray-500">Added at: $${data.addedPrice.toFixed(2)}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-bold ${diffColor}">$${currentPrice.toFixed(2)}</p>
+                    <p class="text-sm ${diffColor}">${priceDiff.toFixed(2)} (${((priceDiff / data.addedPrice) * 100).toFixed(2)}%)</p>
+                </div>
+                <button class="remove-btn bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-full" data-ticker="${ticker}">&times;</button>
+            `;
+            
+            itemEl.addEventListener('click', (e) => {
+                if (e.target.classList.contains('remove-btn')) {
+                    e.stopPropagation();
+                    removeStockFromWatchlist(ticker);
+                } else {
+                    showDetailsPage(ticker, data.addedDate);
+                }
+            });
+
+            watchlistItemsContainer.appendChild(itemEl);
+        }
+        
+        function removeStockFromWatchlist(ticker) {
+            if (!currentWatchlistId) return;
+            const watchlists = getWatchlists();
+            delete watchlists[currentWatchlistId].stocks[ticker];
+            saveWatchlists(watchlists);
+            renderStocks(watchlists[currentWatchlistId].stocks);
+        }
+
+        async function updateAllWatchlistPrices() {
+            const watchlistIdToUpdate = currentWatchlistId;
+            if (!watchlistIdToUpdate) return;
+            
+            const watchlists = getWatchlists();
+            if (!watchlists[watchlistIdToUpdate] || !watchlists[watchlistIdToUpdate].stocks) return;
+
+            const stocks = watchlists[watchlistIdToUpdate].stocks;
+            
+            for (const ticker of Object.keys(stocks)) {
+                 try {
+                    const response = await fetch(`https://api.polygon.io/v2/aggs/ticker/${ticker}/prev?adjusted=true&apiKey=${polygonApiKey}`);
+                    const data = await response.json();
+                    if (data.status === "OK" && data.resultsCount > 0) {
+                        const newPrice = data.results[0].c;
+                        // Defensive check
+                        if (watchlists[watchlistIdToUpdate] && watchlists[watchlistIdToUpdate].stocks[ticker]) {
+                            watchlists[watchlistIdToUpdate].stocks[ticker].currentPrice = newPrice;
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Failed to update price for ${ticker}:`, error);
+                }
+            }
+            saveWatchlists(watchlists);
+
+            if(currentWatchlistId === watchlistIdToUpdate) {
+               renderStocks(watchlists[watchlistIdToUpdate].stocks);
+            }
+        }
+
+        function openAddToWatchlistModal(stockData) {
+            const watchlists = getWatchlists();
+            const watchlistData = Object.entries(watchlists).map(([id, data]) => ({ id, name: data.name }));
+
+            if (watchlistData.length === 0) {
+                displayError("Please create a watchlist first before adding a stock.");
+                return;
+            }
+            watchlistChoiceList.innerHTML = ''; // Clear previous options
+            watchlistData.forEach(wl => {
+                const button = document.createElement('button');
+                button.className = 'w-full text-left bg-gray-200 hover:bg-indigo-600 hover:text-white text-gray-800 font-bold py-3 px-4 rounded-lg transition';
+                button.textContent = wl.name;
+                button.onclick = () => {
+                    const allWatchlists = getWatchlists();
+                    allWatchlists[wl.id].stocks[stockData.ticker] = {
+                        addedPrice: stockData.price,
+                        addedDate: new Date().toISOString()
+                    };
+                    saveWatchlists(allWatchlists);
+                    watchlistChoiceModal.classList.add('hidden');
+                    // Re-render stocks if the user is viewing the watchlist they just added to
+                    if(currentWatchlistId === wl.id) {
+                        renderStocks(allWatchlists[wl.id].stocks);
+                    }
+                };
+                watchlistChoiceList.appendChild(button);
+            });
+            watchlistChoiceModal.classList.remove('hidden');
+        }
+
+        function displayError(message) {
+            errorMessage.textContent = message;
+            errorContainer.classList.remove('hidden');
+        }
+
+        async function fetchEarningsCalendar() {
+            const apiUrl = `https://www.alphavantage.co/query?function=EARNINGS_CALENDAR&horizon=3month&apikey=${alphaVantageApiKey}`;
+            try {
+                const response = await fetch(apiUrl);
+                const csvData = await response.text();
+                const lines = csvData.split('\n').slice(1); // Skip header row
+
+                const allEarnings = lines.map(line => {
+                    const [symbol, name, reportDate] = line.split(',');
+                    return { symbol, name, reportDate };
+                }).filter(e => e.symbol);
+
+                // Filter for large-cap companies
+                const filteredEarnings = allEarnings.filter(e => LARGE_CAP_TICKERS.has(e.symbol));
+
+                // Sort the filtered list by report date
+                filteredEarnings.sort((a, b) => new Date(a.reportDate) - new Date(b.reportDate));
+
+                if (filteredEarnings.length > 0) {
+                    renderEarningsCalendar(filteredEarnings);
+                } else {
+                    earningsLoadingMsg.textContent = 'No upcoming earnings found for major companies.';
+                }
+            } catch (error) {
+                console.error('Error fetching earnings calendar:', error);
+                earningsLoadingMsg.textContent = 'Failed to fetch earnings data.';
+            }
+        }
+
+        function renderEarningsCalendar(earnings) {
+            earningsItemsContainer.innerHTML = '';
+            earnings.forEach((earning, index) => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'earnings-item bg-stone-50 p-3 rounded-lg flex justify-between items-center';
+                // Only hide items beyond the 3rd if we are not expanded
+                if (index >= 3) {
+                    itemEl.classList.add('hidden');
+                }
+                itemEl.innerHTML = `
+                    <div>
+                        <p class="font-bold">${earning.symbol}</p>
+                        <p class="text-sm text-gray-600 truncate" style="max-width: 200px;">${earning.name}</p>
+                    </div>
+                    <p class="font-medium">${earning.reportDate}</p>
+                `;
+                earningsItemsContainer.appendChild(itemEl);
+            });
+
+            if (earnings.length > 3) {
+                toggleEarningsBtn.classList.remove('hidden');
+                toggleEarningsBtn.dataset.expanded = 'false';
+                toggleEarningsBtn.textContent = 'Show More';
+            } else {
+                 toggleEarningsBtn.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
