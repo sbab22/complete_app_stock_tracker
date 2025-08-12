@@ -5,20 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Stock Tracker with Watchlist</title>
 
-  <!-- Tailwind Config -->
   <script>
     tailwind.config = { darkMode: 'class' };
   </script>
 
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
@@ -29,7 +25,6 @@
     }
   </style>
 
-  <!-- Run theme before page paints -->
   <script>
     // This runs immediately so Tailwind sees the correct theme
     const savedTheme = localStorage.getItem('theme');
@@ -43,91 +38,108 @@
 </head>
 <body class="bg-stone-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 flex flex-col items-center min-h-screen p-4 space-y-8">
 
-    <div id="main-view" class="w-full">
-        <div class="w-full max-w-md mx-auto">
-            <div class="bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 md:p-8">
-                <div class="flex justify-between items-center mb-2">
-                    <h1 class="text-2xl md:text-3xl font-bold">Stock Price Tracker</h1>
-                    <button id="theme-toggle-btn" class="p-2 rounded-lg bg-gray-200 dark:bg-slate-700">
-                        <svg id="theme-toggle-dark-icon" class="hidden h-5 w-5 text-gray-800 dark:text-slate-200" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
-                        <svg id="theme-toggle-light-icon" class="hidden h-5 w-5 text-gray-800 dark:text-slate-200" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 5.05A1 1 0 003.636 3.636l-.707.707a1 1 0 101.414 1.414l.707-.707zM3 11a1 1 0 100-2H2a1 1 0 100 2h1zM13 17a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
-                    </button>
-                    </div>
-                <p class="text-center text-gray-500 dark:text-slate-400 mb-6">Enter a US stock ticker to get the latest quote.</p>
+    <div id="main-view" class="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-                <form id="stock-form" class="flex items-center gap-3 mb-6">
-                    <input 
-                        type="text" 
-                        id="ticker-input"
-                        placeholder="e.g., AAPL, GOOGL, MSFT"
-                        class="flex-grow bg-stone-50 dark:bg-slate-700 text-gray-900 dark:text-slate-100 border-2 border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition duration-200"
-                    >
-                    <button 
-                        type="submit"
-                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    </button>
+        <div class="lg:col-span-1 space-y-8">
+            <div id="tips-container" class="w-full bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6">
+                <h2 class="text-2xl font-bold mb-4 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 5.05A1 1 0 003.636 3.636l-.707.707a1 1 0 101.414 1.414l.707-.707zM3 11a1 1 0 100-2H2a1 1 0 100 2h1zM13 17a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1z" clip-rule="evenodd" />
+                    </svg>
+                    Mining Investment Tips
+                </h2>
+                <div class="space-y-3 text-gray-700 dark:text-slate-300 border-t border-gray-200 dark:border-slate-700 pt-4">
+                    <p><strong>Gold:</strong> The price tends to rise when the U.S. dollar inflation rate increases.</p>
+                    <p><strong>Tungsten:</strong> The price tends to rise with the start of major global conflicts due to its use in military applications.</p>
+                </div>
+            </div>
+        </div>
+        <div class="lg:col-span-2 space-y-8">
+            <div class="w-full max-w-md mx-auto">
+                <div class="bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 md:p-8">
+                    <div class="flex justify-between items-center mb-2">
+                        <h1 class="text-2xl md:text-3xl font-bold">Stock Price Tracker</h1>
+                        <button id="theme-toggle-btn" class="p-2 rounded-lg bg-gray-200 dark:bg-slate-700">
+                            <svg id="theme-toggle-dark-icon" class="hidden h-5 w-5 text-gray-800 dark:text-slate-200" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                            <svg id="theme-toggle-light-icon" class="hidden h-5 w-5 text-gray-800 dark:text-slate-200" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 5.05A1 1 0 003.636 3.636l-.707.707a1 1 0 101.414 1.414l.707-.707zM3 11a1 1 0 100-2H2a1 1 0 100 2h1zM13 17a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
+                        </button>
+                    </div>
+                    <p class="text-center text-gray-500 dark:text-slate-400 mb-6">Enter a US stock ticker to get the latest quote.</p>
+
+                    <form id="stock-form" class="flex items-center gap-3 mb-6">
+                        <input 
+                            type="text" 
+                            id="ticker-input"
+                            placeholder="e.g., AAPL, GOOGL, MSFT"
+                            class="flex-grow bg-stone-50 dark:bg-slate-700 text-gray-900 dark:text-slate-100 border-2 border-gray-300 dark:border-slate-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition duration-200"
+                        >
+                        <button 
+                            type="submit"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        </button>
+                    </form>
+
+                    <div id="loading-indicator" class="hidden text-center py-4">
+                        <p class="text-gray-500 dark:text-slate-400">Fetching data...</p>
+                    </div>
+
+                    <div id="error-container" class="hidden bg-red-100 dark:bg-red-900/50 border border-red-400 dark:border-red-500/50 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-center">
+                        <p id="error-message"></p>
+                    </div>
+
+                    <div id="results-container" class="hidden opacity-0 bg-stone-50 dark:bg-slate-700/60 p-6 rounded-lg cursor-pointer hover:bg-stone-200/50 dark:hover:bg-slate-700 transition">
+                        <div class="flex justify-between items-center mb-4">
+                            <div class="flex items-baseline gap-3">
+                                <h2 id="result-ticker" class="text-3xl font-bold"></h2>
+                                <span id="result-company-name" class="text-xl text-gray-600 dark:text-slate-400"></span>
+                            </div>
+                            <p id="result-price" class="text-4xl font-bold"></p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 text-lg">
+                            <div class="bg-stone-100 dark:bg-slate-600 p-3 rounded-md"><p class="text-sm text-gray-500 dark:text-slate-400">Change</p><p id="result-change" class="font-medium"></p></div>
+                            <div class="bg-stone-100 dark:bg-slate-600 p-3 rounded-md"><p class="text-sm text-gray-500 dark:text-slate-400">Change %</p><p id="result-change-percent" class="font-medium"></p></div>
+                            <div class="bg-stone-100 dark:bg-slate-600 p-3 rounded-md"><p class="text-sm text-gray-500 dark:text-slate-400">Prev. Close</p><p id="result-prev-close" class="font-medium"></p></div>
+                            <div class="bg-stone-100 dark:bg-slate-600 p-3 rounded-md"><p class="text-sm text-gray-500 dark:text-slate-400">Open</p><p id="result-open" class="font-medium"></p></div>
+                        </div>
+                        <button id="add-to-watchlist-btn" class="mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200">Add to Watchlist</button>
+                        <p class="text-xs text-gray-400 dark:text-slate-500 text-center mt-4">Click for more details</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="earnings-container" class="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 md:p-8">
+                <h2 class="text-2xl font-bold mb-4">Upcoming Earnings for Major Companies</h2>
+                <div id="earnings-items" class="space-y-3">
+                    <p id="earnings-loading-msg" class="text-gray-500 dark:text-slate-400">Loading upcoming earnings...</p>
+                </div>
+                <button id="toggle-earnings-btn" class="w-full mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-slate-200 font-bold py-2 px-4 rounded-lg transition hidden">Show More</button>
+            </div>
+
+            <div id="watchlist-container" class="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 md:p-8">
+                <h2 class="text-2xl font-bold mb-4">My Watchlists</h2>
+                
+                <div id="watchlist-folders" class="flex flex-wrap items-center gap-3 mb-4 border-b border-gray-200 dark:border-slate-700 pb-4">
+                </div>
+
+                <form id="new-watchlist-form" class="flex items-center gap-3 mb-6">
+                    <input type="text" id="new-watchlist-name" placeholder="Create New Watchlist..." class="flex-grow bg-stone-50 dark:bg-slate-700 text-gray-900 dark:text-slate-100 border-2 border-gray-300 dark:border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400">
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition">Create</button>
                 </form>
 
-                <div id="loading-indicator" class="hidden text-center py-4">
-                    <p class="text-gray-500 dark:text-slate-400">Fetching data...</p>
+                <div id="watchlist-header" class="hidden flex justify-between items-center mb-4">
+                    <h3 id="current-watchlist-title" class="text-xl font-bold"></h3>
+                    <button id="delete-watchlist-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg transition flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        <span>Delete Folder</span>
+                    </button>
                 </div>
 
-                <div id="error-container" class="hidden bg-red-100 dark:bg-red-900/50 border border-red-400 dark:border-red-500/50 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-center">
-                    <p id="error-message"></p>
+                <div id="watchlist-items" class="space-y-4">
+                    <p id="watchlist-empty-msg" class="text-gray-500 dark:text-slate-400">Select or create a watchlist to view stocks.</p>
                 </div>
-
-                <div id="results-container" class="hidden opacity-0 bg-stone-50 dark:bg-slate-700/60 p-6 rounded-lg cursor-pointer hover:bg-stone-200/50 dark:hover:bg-slate-700 transition">
-                    <div class="flex justify-between items-center mb-4">
-                        <div class="flex items-baseline gap-3">
-                            <h2 id="result-ticker" class="text-3xl font-bold"></h2>
-                            <span id="result-company-name" class="text-xl text-gray-600 dark:text-slate-400"></span>
-                        </div>
-                        <p id="result-price" class="text-4xl font-bold"></p>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4 text-lg">
-                        <div class="bg-stone-100 dark:bg-slate-600 p-3 rounded-md"><p class="text-sm text-gray-500 dark:text-slate-400">Change</p><p id="result-change" class="font-medium"></p></div>
-                        <div class="bg-stone-100 dark:bg-slate-600 p-3 rounded-md"><p class="text-sm text-gray-500 dark:text-slate-400">Change %</p><p id="result-change-percent" class="font-medium"></p></div>
-                        <div class="bg-stone-100 dark:bg-slate-600 p-3 rounded-md"><p class="text-sm text-gray-500 dark:text-slate-400">Prev. Close</p><p id="result-prev-close" class="font-medium"></p></div>
-                        <div class="bg-stone-100 dark:bg-slate-600 p-3 rounded-md"><p class="text-sm text-gray-500 dark:text-slate-400">Open</p><p id="result-open" class="font-medium"></p></div>
-                    </div>
-                    <button id="add-to-watchlist-btn" class="mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200">Add to Watchlist</button>
-                    <p class="text-xs text-gray-400 dark:text-slate-500 text-center mt-4">Click for more details</p>
-                </div>
-            </div>
-        </div>
-        
-        <div id="earnings-container" class="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 md:p-8 mt-8">
-            <h2 class="text-2xl font-bold mb-4">Upcoming Earnings for Major Companies</h2>
-            <div id="earnings-items" class="space-y-3">
-                <p id="earnings-loading-msg" class="text-gray-500 dark:text-slate-400">Loading upcoming earnings...</p>
-            </div>
-            <button id="toggle-earnings-btn" class="w-full mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-slate-200 font-bold py-2 px-4 rounded-lg transition hidden">Show More</button>
-        </div>
-
-        <div id="watchlist-container" class="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 shadow-xl rounded-xl p-6 md:p-8 mt-8">
-            <h2 class="text-2xl font-bold mb-4">My Watchlists</h2>
-            
-            <div id="watchlist-folders" class="flex flex-wrap items-center gap-3 mb-4 border-b border-gray-200 dark:border-slate-700 pb-4">
-            </div>
-
-            <form id="new-watchlist-form" class="flex items-center gap-3 mb-6">
-                <input type="text" id="new-watchlist-name" placeholder="Create New Watchlist..." class="flex-grow bg-stone-50 dark:bg-slate-700 text-gray-900 dark:text-slate-100 border-2 border-gray-300 dark:border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400">
-                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition">Create</button>
-            </form>
-
-            <div id="watchlist-header" class="hidden flex justify-between items-center mb-4">
-                <h3 id="current-watchlist-title" class="text-xl font-bold"></h3>
-                <button id="delete-watchlist-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg transition flex items-center gap-2 text-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                    <span>Delete Folder</span>
-                </button>
-            </div>
-
-            <div id="watchlist-items" class="space-y-4">
-                <p id="watchlist-empty-msg" class="text-gray-500 dark:text-slate-400">Select or create a watchlist to view stocks.</p>
             </div>
         </div>
     </div>
@@ -980,6 +992,3 @@
     </script>
 </body>
 </html>
-
-
-
