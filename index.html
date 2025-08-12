@@ -208,23 +208,39 @@
         let lifetimePriceChart = null;
         let currentWatchlistId = null;
         
-        // --- START: Theme Toggling Logic ---
+        // --- START: Theme Toggling Logic (Corrected) ---
         const themeToggleBtn = document.getElementById('theme-toggle-btn');
         const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
         const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
         const htmlElement = document.documentElement;
 
         const applyTheme = (theme) => {
+            // Apply the theme to the HTML element
             if (theme === 'dark') {
                 htmlElement.classList.add('dark');
-                themeToggleLightIcon.classList.remove('hidden');
-                themeToggleDarkIcon.classList.add('hidden');
-                localStorage.setItem('theme', 'dark');
             } else {
                 htmlElement.classList.remove('dark');
-                themeToggleLightIcon.classList.add('hidden');
-                themeToggleDarkIcon.classList.remove('hidden');
-                localStorage.setItem('theme', 'light');
+            }
+
+            // Update the toggle icons
+            themeToggleLightIcon.classList.toggle('hidden', theme !== 'dark');
+            themeToggleDarkIcon.classList.toggle('hidden', theme === 'dark');
+
+            // Save the theme to local storage
+            localStorage.setItem('theme', theme);
+
+            // If the chart is visible, update its colors
+            if (lifetimePriceChart && !detailsPage.classList.contains('hidden-view')) {
+                const isDarkMode = (theme === 'dark');
+                const gridColor = isDarkMode ? 'rgba(100, 116, 139, 0.3)' : 'rgba(203, 213, 225, 0.5)';
+                const fontColor = isDarkMode ? '#e2e8f0' : '#334155';
+
+                lifetimePriceChart.options.scales.x.grid.color = gridColor;
+                lifetimePriceChart.options.scales.y.grid.color = gridColor;
+                lifetimePriceChart.options.scales.x.ticks.color = fontColor;
+                lifetimePriceChart.options.scales.y.ticks.color = fontColor;
+                lifetimePriceChart.options.scales.y.title.color = fontColor;
+                lifetimePriceChart.update();
             }
         };
 
@@ -244,7 +260,7 @@
                 applyTheme('light');
             }
         };
-        // --- END: Theme Toggling Logic ---
+        // --- END: Theme Toggling Logic (Corrected) ---
 
         // --- App Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -961,3 +977,4 @@
     </script>
 </body>
 </html>
+
